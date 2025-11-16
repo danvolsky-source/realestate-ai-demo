@@ -1,90 +1,108 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<title>Berlin Investment Analyzer</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Berlin Real Estate Investment</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
 <style>
-body{margin:0;font-family:system-ui,sans-serif;display:flex;height:100vh}
-#map{flex:1}
-.sidebar{width:380px;background:#1e293b;color:#fff;padding:30px;overflow-y:auto}
-.metric{background:#334155;border-radius:10px;padding:20px;margin-bottom:15px}
-.metric-label{font-size:12px;color:#94a3b8;text-transform:uppercase;margin-bottom:5px}
-.metric-value{font-size:28px;font-weight:700;color:#38bdf8}
-.info-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #334155}
-.info-label{color:#94a3b8;font-size:13px}
-.info-value{color:#fff;font-weight:600}
-h1{font-size:22px;margin:0 0 10px;color:#38bdf8}
-h2{font-size:16px;margin:20px 0 15px;color:#cbd5e1}
-.leaflet-popup-content{min-width:200px}
-.popup-title{font-weight:700;font-size:16px;margin-bottom:10px}
-.popup-data{font-size:13px;line-height:1.6}
+body{margin:0;font-family:system-ui,sans-serif}
+#map{position:absolute;top:0;bottom:0;width:100%}
+.dashboard{position:absolute;top:20px;right:20px;width:360px;background:rgba(30,41,59,.95);backdrop-filter:blur(10px);border-radius:16px;padding:25px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+h1{margin:0 0 8px;font-size:20px;color:#38bdf8}
+.subtitle{color:#94a3b8;font-size:13px;margin:0 0 20px}
+.gauge{margin-bottom:20px}
+.gauge-label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.gauge-meter{position:relative;width:100%;height:100px;background:#1e293b;border-radius:8px;overflow:hidden;border:2px solid #334155}
+.gauge-fill{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,#10b981 0%,#059669 100%);transition:height .6s cubic-bezier(.4,0,.2,1)}
+.gauge-fill.warning{background:linear-gradient(180deg,#f59e0b 0%,#d97706 100%)}
+.gauge-fill.danger{background:linear-gradient(180deg,#ef4444 0%,#dc2626 100%)}
+.gauge-value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:32px;font-weight:700;color:#fff;z-index:2;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.gauge-unit{font-size:16px;font-weight:400;margin-left:2px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}
+.info-box{background:#1e293b;padding:12px;border-radius:8px;border:1px solid #334155}
+.info-label{font-size:10px;color:#94a3b8;margin-bottom:4px}
+.info-value{font-size:14px;font-weight:600;color:#fff}
+.district-tag{display:inline-block;background:#334155;padding:4px 12px;border-radius:20px;font-size:12px;color:#38bdf8;margin-bottom:15px}
 </style>
 </head>
 <body>
 <div id="map"></div>
-<div class="sidebar">
-<h1>🏢 Berlin Investment</h1>
-<p style="color:#94a3b8;font-size:13px;margin:0 0 25px">Click on any district</p>
+<div class="dashboard">
+<h1>🏢 Investment Analyzer</h1>
+<p class="subtitle">Real-time district metrics</p>
+<div class="district-tag" id="districtName">Select district</div>
 
-<div class="metric">
-<div class="metric-label">District</div>
-<div class="metric-value" id="district">Select area</div>
+<div class="gauge">
+<div class="gauge-label">ROI 5-Year Projection</div>
+<div class="gauge-meter">
+<div class="gauge-fill" id="roiFill" style="height:0%"></div>
+<div class="gauge-value" id="roiValue">--%</div>
+</div>
 </div>
 
-<div class="metric">
-<div class="metric-label">Price / m²</div>
-<div class="metric-value" id="price">€--</div>
+<div class="gauge">
+<div class="gauge-label">Safety Index</div>
+<div class="gauge-meter">
+<div class="gauge-fill" id="safetyFill" style="height:0%"></div>
+<div class="gauge-value" id="safetyValue">--<span class="gauge-unit">/100</span></div>
+</div>
 </div>
 
-<div class="metric">
-<div class="metric-label">ROI (5 year)</div>
-<div class="metric-value" id="roi">--%</div>
+<div class="gauge">
+<div class="gauge-label">Price per m²</div>
+<div class="gauge-meter">
+<div class="gauge-fill warning" id="priceFill" style="height:0%"></div>
+<div class="gauge-value" id="priceValue">€--</div>
+</div>
 </div>
 
-<h2>Details</h2>
-<div style="background:#334155;border-radius:10px;padding:15px">
-<div class="info-row"><span class="info-label">Safety</span><span class="info-value" id="safety">--/100</span></div>
-<div class="info-row"><span class="info-label">Crime</span><span class="info-value" id="crime">--</span></div>
-<div class="info-row"><span class="info-label">Income</span><span class="info-value" id="income">€--</span></div>
-<div class="info-row"><span class="info-label">Growth</span><span class="info-value" id="growth">--%</span></div>
-<div class="info-row" style="border:none"><span class="info-label">Transport</span><span class="info-value" id="transport">--</span></div>
+<div class="info-grid">
+<div class="info-box"><div class="info-label">Crime Rate</div><div class="info-value" id="crime">--</div></div>
+<div class="info-box"><div class="info-label">Growth</div><div class="info-value" id="growth">--%</div></div>
+<div class="info-box"><div class="info-label">Income</div><div class="info-value" id="income">€--</div></div>
+<div class="info-box"><div class="info-label">Transport</div><div class="info-value" id="transport">--</div></div>
 </div>
 </div>
 
 <script>
-const map=L.map('map').setView([52.52,13.405],11);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+mapboxgl.accessToken='pk.eyJ1IjoiZXhhbXBsZXVzZXIiLCJhIjoiY2pvaG5kb2UwMDAwMzNrbzRnYjB6dWs3MyJ9.example';
+const map=new mapboxgl.Map({container:'map',style:'mapbox://styles/mapbox/light-v11',center:[13.405,52.52],zoom:11.5,pitch:60,bearing:0});
+
+map.on('load',()=>{
+map.addLayer({'id':'3d-buildings','source':'composite','source-layer':'building','filter':['==','extrude','true'],'type':'fill-extrusion','minzoom':15,'paint':{'fill-extrusion-color':'#aaa','fill-extrusion-height':['interpolate',['linear'],['zoom'],15,0,15.05,['get','height']],'fill-extrusion-base':['interpolate',['linear'],['zoom'],15,0,15.05,['get','min_height']],'fill-extrusion-opacity':.6}});
 
 const districts={
-mitte:{name:'Mitte',coords:[[52.533,13.38],[52.533,13.42],[52.515,13.42],[52.515,13.38]],price:8900,roi:42,safety:85,crime:'Low',income:52400,growth:9.2,transport:'Excellent'},
-prenz:{name:'Prenzlauer Berg',coords:[[52.533,13.40],[52.548,13.43],[52.535,13.45],[52.525,13.42]],price:8200,roi:38,safety:88,crime:'Low',income:58300,growth:8.5,transport:'Excellent'},
-kreuz:{name:'Kreuzberg',coords:[[52.495,13.38],[52.505,13.42],[52.485,13.42],[52.48,13.39]],price:6900,roi:45,safety:72,crime:'Medium',income:45200,growth:11.3,transport:'Good'},
-charl:{name:'Charlottenburg',coords:[[52.515,13.28],[52.53,13.32],[52.52,13.35],[52.505,13.31]],price:9500,roi:34,safety:92,crime:'Very Low',income:68500,growth:5.8,transport:'Excellent'},
-neuk:{name:'Neukölln',coords:[[52.47,13.42],[52.485,13.45],[52.465,13.46],[52.455,13.43]],price:5400,roi:52,safety:68,crime:'High',income:38900,growth:14.2,transport:'Good'},
-fried:{name:'Friedrichshain',coords:[[52.515,13.43],[52.525,13.47],[52.51,13.48],[52.505,13.44]],price:7800,roi:41,safety:78,crime:'Medium',income:51200,growth:9.8,transport:'Excellent'},
-tempel:{name:'Tempelhof',coords:[[52.465,13.37],[52.475,13.41],[52.46,13.42],[52.45,13.38]],price:7200,roi:38,safety:82,crime:'Low',income:54100,growth:7.6,transport:'Good'},
-pankow:{name:'Pankow',coords:[[52.565,13.38],[52.58,13.42],[52.565,13.44],[52.55,13.40]],price:7500,roi:39,safety:85,crime:'Low',income:52800,growth:8.1,transport:'Good'}
+mitte:{center:[13.405,52.52],price:8900,roi:42,safety:85,crime:'Low',income:52400,growth:9.2,transport:'Excellent'},
+prenz:{center:[13.421,52.541],price:8200,roi:38,safety:88,crime:'Low',income:58300,growth:8.5,transport:'Excellent'},
+kreuz:{center:[13.403,52.499],price:6900,roi:45,safety:72,crime:'Medium',income:45200,growth:11.3,transport:'Good'},
+charl:{center:[13.305,52.516],price:9500,roi:34,safety:92,crime:'Very Low',income:68500,growth:5.8,transport:'Excellent'},
+neuk:{center:[13.437,52.474],price:5400,roi:52,safety:68,crime:'High',income:38900,growth:14.2,transport:'Good'},
+fried:{center:[13.453,52.515],price:7800,roi:41,safety:78,crime:'Medium',income:51200,growth:9.8,transport:'Excellent'},
+tempel:{center:[13.387,52.465],price:7200,roi:38,safety:82,crime:'Low',income:54100,growth:7.6,transport:'Good'},
+pankow:{center:[13.401,52.569],price:7500,roi:39,safety:85,crime:'Low',income:52800,growth:8.1,transport:'Good'}
 };
 
-function updateSidebar(d){
-document.getElementById('district').textContent=d.name;
-document.getElementById('price').textContent='€'+d.price.toLocaleString();
-document.getElementById('roi').textContent=d.roi+'%';
-document.getElementById('safety').textContent=d.safety+'/100';
+Object.entries(districts).forEach(([key,d])=>{
+new mapboxgl.Marker({color:d.roi>40?'#10b981':d.roi>35?'#f59e0b':'#ef4444'}).setLngLat(d.center).setPopup(new mapboxgl.Popup().setHTML(`<strong>${key.toUpperCase()}</strong><br>€${d.price.toLocaleString()}/m²<br>ROI: ${d.roi}%`)).addTo(map).getElement().addEventListener('click',()=>updateDashboard(key,d));
+});
+});
+
+function updateDashboard(name,d){
+document.getElementById('districtName').textContent=name.toUpperCase();
+document.getElementById('roiValue').textContent=d.roi+'%';
+document.getElementById('roiFill').style.height=d.roi+'%';
+document.getElementById('safetyValue').innerHTML=d.safety+'<span class="gauge-unit">/100</span>';
+document.getElementById('safetyFill').style.height=d.safety+'%';
+const pricePercent=Math.min((d.price/10000)*100,100);
+document.getElementById('priceValue').textContent='€'+(d.price/1000).toFixed(1)+'k';
+document.getElementById('priceFill').style.height=pricePercent+'%';
 document.getElementById('crime').textContent=d.crime;
-document.getElementById('income').textContent='€'+d.income.toLocaleString();
 document.getElementById('growth').textContent='+'+d.growth+'%';
+document.getElementById('income').textContent='€'+(d.income/1000).toFixed(1)+'k';
 document.getElementById('transport').textContent=d.transport;
 }
-
-Object.entries(districts).forEach(([key,d])=>{
-const poly=L.polygon(d.coords,{color:d.roi>40?'#22c55e':d.roi>35?'#f59e0b':'#ef4444',fillOpacity:0.4,weight:2}).addTo(map);
-poly.bindPopup(`<div class="popup-title">${d.name}</div><div class="popup-data"><b>€${d.price.toLocaleString()}/m²</b><br>ROI: ${d.roi}%<br>Safety: ${d.safety}/100</div>`);
-poly.on('click',()=>updateSidebar(d));
-});
 </script>
 </body>
 </html>
